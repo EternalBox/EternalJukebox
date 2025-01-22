@@ -26,6 +26,7 @@ import org.abimon.eternalJukebox.data.storage.IStorage
 import org.abimon.eternalJukebox.handlers.PopularHandler
 import org.abimon.eternalJukebox.handlers.StaticResources
 import org.abimon.eternalJukebox.handlers.api.*
+import org.abimon.eternalJukebox.objects.BasicStringSubstitutor
 import org.abimon.eternalJukebox.objects.ConstantValues
 import org.abimon.eternalJukebox.objects.EmptyDataAPI
 import org.abimon.eternalJukebox.objects.JukeboxConfig
@@ -34,6 +35,7 @@ import org.slf4j.LoggerFactory
 import java.io.File
 import java.io.OutputStream
 import java.io.PrintStream
+import java.io.StringReader
 import java.util.*
 import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.Executors
@@ -92,7 +94,7 @@ object EternalJukebox : CoroutineScope {
     private val referrers: ConcurrentSkipListSet<String> = ConcurrentSkipListSet()
     private val referrersFile = File("referrers.txt")
 
-    private fun start() {
+    public fun start() {
         webserver.listen(config.port)
         logger.info("Now listening on port {}", config.port)
     }
@@ -106,12 +108,13 @@ object EternalJukebox : CoroutineScope {
     }
 
     init {
-        config = if (jsonConfig.exists())
-            jsonMapper.readValue(jsonConfig, JukeboxConfig::class.java)
-        else if (yamlConfig.exists())
-            yamlMapper.readValue(yamlConfig, JukeboxConfig::class.java)
-        else
+        config = if (jsonConfig.exists()) {
+            jsonMapper.readValue(jsonConfig.bufferedReader().use(BasicStringSubstitutor::preprocess), JukeboxConfig::class.java)
+        } else if (yamlConfig.exists()) {
+            yamlMapper.readValue(yamlConfig.bufferedReader().use(BasicStringSubstitutor::preprocess), JukeboxConfig::class.java)
+        } else {
             JukeboxConfig()
+        }
 
         logStreams = config.logFiles.mapValues { (_, filename) -> if(filename != null) PrintStream(File(filename)) else emptyPrintStream }
 
